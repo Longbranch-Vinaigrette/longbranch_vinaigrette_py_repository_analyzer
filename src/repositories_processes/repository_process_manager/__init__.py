@@ -101,7 +101,10 @@ class RepositoriesProcessManager:
                             clr.print_ok_green(f"App found: {proc['name']}")
                             pprint.pprint(proc)
 
-                        apps_running[proc["cwd"]] = proc
+                        apps_running[proc["cwd"]] = {
+                            **proc,
+                            "appInfo": app_info
+                        }
                 except Exception as ex:
                     # This error is kinda tricky, that's why I added so much info
                     print("Exception: ", ex)
