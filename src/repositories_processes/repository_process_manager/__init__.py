@@ -11,6 +11,7 @@ class RepositoriesProcessManager:
     def __init__(self, repositories_path: list, debug: bool = False):
         repositories: list = []
 
+        # Get name and path
         for repo_path in repositories_path:
             repositories.append(
                 {
@@ -26,13 +27,6 @@ class RepositoriesProcessManager:
         self.repositories_index = {}
         for index, repository in enumerate(repositories):
             self.repositories_index[repository["path"]] = index
-
-        if self.debug:
-            for repository in repositories:
-                if repository["appLanguage"] == "Python":
-                    print("\n")
-                    clr.print_underline(f"{repository['name']}")
-                    pprint.pprint(repository)
 
         if self.debug:
             print("\n")
@@ -53,23 +47,45 @@ class RepositoriesProcessManager:
             app_type = info.get_app_type()
 
             if app_type:
-                possible_commands = app_type.possible_start_commands()
-                repository["possibleCommands"] = possible_commands
+                # Any of these could be missing
+                try:
+                    possible_commands = app_type.possible_start_commands()
+                    repository["possibleCommands"] = possible_commands
+                except:
+                    repository["possibleCommands"] = None
 
-                possible_start_scripts = app_type.possible_start_scripts()
-                repository["possibleStartScripts"] = possible_start_scripts
+                try:
+                    possible_start_scripts = app_type.possible_start_scripts()
+                    repository["possibleStartScripts"] = possible_start_scripts
+                except:
+                    repository["possibleStartScripts"] = None
 
+                # App language shouldn't be missing in any case
                 repository["appLanguage"] = app_type.app_language()
             else:
                 repository["possibleCommands"] = None
                 repository["possibleStartScripts"] = None
                 repository["appLanguage"] = None
 
-    def find_starts_with(self, cmd: str, possible_cmds: list):
+    def find_starts_with(self,
+                         cmd: str,
+                         possible_cmds: list,
+                         excludes: list = []):
         """Find the cmd of a process starts with at least one
         of the possible commands"""
         for possible_cmd in possible_cmds:
+
             if cmd.startswith(possible_cmd):
+                return True
+        return False
+
+    def get_this_is_not_it(self, cmd: str, excludes: list = []):
+        """Check if this is the app we're looking for or not
+
+        This one discards any app that its start command starts with a
+        command given in the 'excludes' list"""
+        for exclude in excludes:
+            if cmd.startswith(exclude):
                 return True
         return False
 
@@ -92,36 +108,72 @@ class RepositoriesProcessManager:
 
             if app_info:
                 try:
+                    # Process name is essential on process identification
+                    try:
+                        process_name = proc["name"]
+                    except:
+                        clr.print_error("You need to provide the field 'name' "
+                                        "for every process, as this is the command "
+                                        "that started the process, and is "
+                                        "used to identify the app.")
+                        continue
+
+                    # Check if the command is excluded or not, if it's
+                    # then this is not the command we are looking for
+                    try:
+                        this_is_not_it = self.get_this_is_not_it(
+                            process_name,
+                            app_info.exclude_start_commands()
+                        )
+                        # Although this process may have started the app,
+                        # killing it wouldn't stop the app, like Next.js
+                        # 'npm run dev'
+                        if this_is_not_it:
+                            continue
+                    except:
+                        # The language apps have no excluded commands, and
+                        # that's ok.
+                        pass
+
+                    # Check if there are possible start commands
+                    # if there aren't, we can't kill the app then.
+                    try:
+                        app_possible_commands = app_info["possibleCommands"]
+                        if not app_possible_commands:
+                            raise Exception("The app needs possible starting commands "
+                                        "to be precisely identified")
+                    except:
+                        clr.print_error("The app needs possible starting commands "
+                                        "to be precisely identified")
+                        continue
+
+                    try:
+                        process_cwd = proc["cwd"]
+                    except:
+                        clr.print_error("The process cwd is very important to "
+                                        "identify app there must have been a weird "
+                                        "error if you didn't get it, check what "
+                                        "information you retrieve from the "
+                                        "processes.")
+                        continue
+
                     # The name of the app is the command
                     is_the_app = self.find_starts_with(
-                        proc["name"],
-                        app_info["possibleCommands"])
+                        process_name,
+                        app_possible_commands)
+
                     if is_the_app:
                         if self.debug:
                             clr.print_ok_green(f"App found: {proc['name']}")
                             pprint.pprint(proc)
 
-                        apps_running[proc["cwd"]] = {
+                        apps_running[process_cwd] = {
                             **proc,
                             "appInfo": app_info
                         }
                 except Exception as ex:
-                    # This error is kinda tricky, that's why I added so much info
-                    print("Exception: ", ex)
-                    clr.print_error("It's likely that the possible commands field "
-                                    "doesn't exist, you must update it on the "
-                                    "submodule longbranch_vinaigrette_py_repository"
-                                    "_analyzer/src/repository_information and its "
-                                    "respective class.")
-                    clr.print_itallic("Without the app possible commands it would "
-                                      "be really hard to identify the app, you "
-                                      "just need to add possible values to "
-                                      "start the app, like: python3.10, node, "
-                                      "etc.")
-                    clr.print_underline("Process information")
-                    pprint.pprint(proc)
-                    clr.print_underline("App information")
-                    pprint.pprint(app_info)
+                    clr.print_error("Unknown error: ")
+                    print(f"{clr.clr.FAIL}Exception: ", ex, f"{clr.clr.ENDC}")
         return apps_running
 
     def get_running_apps(self):

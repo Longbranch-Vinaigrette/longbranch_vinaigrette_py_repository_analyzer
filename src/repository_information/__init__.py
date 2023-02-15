@@ -1,3 +1,4 @@
+from .nodejs import NodeJS
 from .python import Python
 
 
@@ -13,4 +14,10 @@ class RepositoryInformation:
             return python_app
         except:
             # Not a python app
+            pass
+
+        try:
+            nodejs_app = NodeJS(self.path)
+            return nodejs_app
+        except:
             pass
