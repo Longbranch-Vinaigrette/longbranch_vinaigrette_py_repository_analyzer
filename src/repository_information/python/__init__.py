@@ -52,3 +52,7 @@ class Python:
             return True
         elif self.has_manage_dot_py():
             return True
+
+    def app_language(self):
+        """Get app language"""
+        return "Python"
