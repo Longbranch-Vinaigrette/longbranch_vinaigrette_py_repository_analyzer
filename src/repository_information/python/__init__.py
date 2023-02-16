@@ -1,10 +1,16 @@
 import os
+import subprocess
+
+from ... import cli_color_messages_python as ccm
+from ... import misc
+from ...packages import Packages
 
 
 class Python:
-    def __init__(self, app_path: str):
+    def __init__(self, app_path: str, run_args: str = ""):
         """Python app"""
         self.path = app_path
+        self.args = run_args
 
         if not self.is_python_app():
             raise Exception("Not a python app.")
@@ -56,3 +62,39 @@ class Python:
     def app_language(self):
         """Get app language"""
         return "Python"
+
+    def get_app_run_command(self):
+        """Get app run command"""
+        cmds = ""
+
+        # Check if it uses pipenv
+        if os.path.exists(f"{self.path}{os.path.sep}Pipfile"):
+            # If the user doesn't have pipenv but the file Pipfile exists
+            # in the folder, we can install it.
+            pkgs = Packages()
+            result = pkgs.find("pipenv")
+
+            if not result:
+                # "If the package doesn't exist, just install it" - Sigma grindset rule 420
+                subprocess.run(["pip3", "install", "pipenv"])
+
+            return f"pipenv run python3 main.py {self.args};"
+        else:
+            # Normal python app
+            return f"python3 main.py {self.args};"
+
+    """
+            Operations
+    """
+    def start_app(self):
+        """Start the app"""
+        misc.setup_submodules(self.path)
+        cmds = self.get_app_run_command()
+        print("Cmds: ", cmds, "\n")
+
+        if cmds:
+            subprocess.run(["/bin/bash",
+                            "-c",
+                            f"cd {self.path}; {cmds}"])
+        else:
+            ccm.print_error("Couldn't find a way to run the Python app.")

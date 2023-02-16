@@ -1,3 +1,9 @@
 [submodule "src/cli_color_messages_python"]
 	path = src/cli_color_messages_python
 	url = git@github.com:Longbranch-Vinaigrette/cli_color_messages_python.git
+[submodule "src/gitconfig"]
+	path = src/gitconfig
+	url = git@github.com:Longbranch-Vinaigrette/longbranch_vinaigrette_py_gitconfig.git
+[submodule "src/packages"]
+	path = src/packages
+	url = git@github.com:Longbranch-Vinaigrette/longbranch_vinaigrette_py_packages.git

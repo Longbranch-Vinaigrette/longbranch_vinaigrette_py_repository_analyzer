@@ -4,6 +4,8 @@ import subprocess
 
 from ... import cli_color_messages_python as ccm
 
+from ... import misc
+
 
 class NodeJS:
     def __init__(self, app_path: str):
@@ -170,6 +172,8 @@ class NodeJS:
         Note that it doesn't update/install submodules
         """
         try:
+            misc.setup_submodules(self.path)
+
             # Get app run command
             run_cmd = self.get_app_run_command()
 

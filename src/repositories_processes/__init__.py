@@ -21,8 +21,9 @@ class RepositoriesProcesses:
             # and then starts it.
             app.start_app()
             ccm.print_ok_green("App started successfully")
-        except:
+        except Exception as ex:
             ccm.print_error("Couldn't find a way to start the app.")
+            ccm.print_error(f"Exception: {str(ex)}")
 
     def kill_by_cwd(self, cwd: str):
         """Kill an app precisely by cwd

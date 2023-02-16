@@ -1,3 +1,5 @@
+from .. import cli_color_messages_python as ccm
+
 from .nodejs import NodeJS
 from .python import Python
 
