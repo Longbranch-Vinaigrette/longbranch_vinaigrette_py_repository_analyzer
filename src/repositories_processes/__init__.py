@@ -1,5 +1,8 @@
 import subprocess
 
+from ..repository_information import RepositoryInformation
+from .. import cli_color_messages_python as ccm
+
 from .repository_process_manager import RepositoriesProcessManager
 
 
@@ -7,6 +10,19 @@ class RepositoriesProcesses:
     def __init__(self, repositories_path: list, debug: bool = False):
         rep_mng = RepositoriesProcessManager(repositories_path, debug=debug)
         self.apps_running = rep_mng.get_running_apps()
+
+    def start_by_cwd(self, cwd: str):
+        """Start an app by cwd"""
+        rep_inf = RepositoryInformation(cwd)
+        app = rep_inf.get_app_type()
+
+        try:
+            # Start app installs dependencies, builds the app(if necessary)
+            # and then starts it.
+            app.start_app()
+            ccm.print_ok_green("App started successfully")
+        except:
+            ccm.print_error("Couldn't find a way to start the app.")
 
     def kill_by_cwd(self, cwd: str):
         """Kill an app precisely by cwd

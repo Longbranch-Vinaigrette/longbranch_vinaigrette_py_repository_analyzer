@@ -1,4 +1,8 @@
+import json
 import os
+import subprocess
+
+from ... import cli_color_messages_python as ccm
 
 
 class NodeJS:
@@ -9,6 +13,9 @@ class NodeJS:
         if not self.is_nodejs_app():
             raise Exception("Not a NodeJS app.")
 
+    """
+            Information
+    """
     def has_indexjs(self):
         """Has index.js"""
         if os.path.exists(f"{self.path}{os.path.sep}index.js"):
@@ -29,49 +36,6 @@ class NodeJS:
             return True
         else:
             return False
-
-    def setup_and_run(self):
-        """Get nodejs commands
-
-        If it finds build it adds it
-        And at last, after building, it adds the start command"""
-        package_json_path = f"{self.path}{os.path.sep}package.json"
-        cmds = ""
-        if os.path.exists(package_json_path):
-            # Fetch commands
-            with open(package_json_path) as f:
-                try:
-                    data = json.load(f)
-
-                    if "scripts" in data:
-                        scripts = data['scripts']
-
-                        if "build" in scripts:
-                            cmds += f"npm run build;"
-                            print(f"{clr.OKBLUE}Found build script{clr.ENDC}")
-                        else:
-                            print(f"{clr.OKBLUE}The app doesn't uses a build script "
-                                  f"{clr.ENDC}")
-
-                        if "start" in scripts:
-                            cmds += f"npm run start;"
-                        else:
-                            print(f"{clr.WARNING} Warning: No start script found "
-                                  f"running in simple mode 'node index.js'{clr.ENDC}")
-                            # "If start doesn't exist, just start it normally"
-                            # - Sigma grindset rule #3492929525235234243245235
-                            cmds += f"node index.js"
-                    else:
-                        print(f"{clr.WARNING}Warning: Scripts field doesn't exist "
-                              f"in package.json{clr.ENDC}")
-                        # Start normally
-                        cmds += f"node index.js"
-                except:
-                    # Start normally
-                    print(f"{clr.WARNING}Warning: Couldn't load data from "
-                          f"package.json{clr.ENDC}")
-                    cmds += f"node index.js"
-        return cmds
 
     def possible_start_commands(self):
         """Possible start commands
@@ -112,3 +76,122 @@ class NodeJS:
     def app_language(self):
         """Get app language"""
         return "Javascript"
+
+    def get_nodejs_commands(self):
+        """Get nodejs commands
+
+        If it finds build it adds it
+        And at last, after building, it adds the start command"""
+        package_json_path = f"{self.path}{os.path.sep}package.json"
+        cmds = ""
+        if os.path.exists(package_json_path):
+            # Fetch commands
+            with open(package_json_path) as f:
+                try:
+                    data = json.load(f)
+
+                    if "scripts" in data:
+                        scripts = data['scripts']
+
+                        # Only for Next.js apps
+                        if self.is_nextjs_app():
+                            if "build" in scripts:
+                                cmds += f"npm run build;"
+                                ccm.print_ok_blue("Found build script")
+                            else:
+                                ccm.print_warning(
+                                    "The app doesn't have a build script "
+                                    "but it was detected that the app may need it "
+                                    "to start."
+                                )
+                                print("App types that may require to be "
+                                      "built first: Next.js, React.js")
+
+                        if "start" in scripts:
+                            cmds += f"npm run start;"
+                            ccm.print_ok_blue("Found start script")
+                        else:
+                            ccm.print_warning(
+                                "No start script found running in simple "
+                                "mode 'node index.js'"
+                            )
+                            # "If start doesn't exist, just start it normally"
+                            # - Sigma grindset rule #3492929525235234243245235
+                            cmds += f"node index.js"
+                    else:
+                        ccm.print_warning(
+                            "Scripts field doesn't exist in package.json"
+                        )
+                        # Start normally
+                        cmds += f"node index.js"
+                except Exception as ex:
+                    # Start normally
+                    ccm.print_warning(
+                        "Couldn't load data from package.json"
+                    )
+                    cmds += f"node index.js"
+        else:
+            ccm.print_warning(
+                "No package.json found running in simple mode with the command "
+                "'node index.js'"
+            )
+            cmds += f"node index.js"
+
+        return cmds
+
+    def get_app_run_command(self):
+        """Get app run command
+
+        First it checks if the app has a main.py file
+
+        Then it checks if the app has a package.json
+        If it doesn't find any commands in it, it will just run
+        'node index.js'
+        """
+        # Node.js
+        package_json_path = f"{self.path}{os.path.sep}package.json"
+
+        cmds = ""
+
+        # It's a python app
+        if os.path.exists(package_json_path):
+            # Commands
+            cmds = "npm install;"
+            cmds += self.get_nodejs_commands()
+
+        return cmds
+
+    """
+            Operations
+    """
+    def start_app(self):
+        """Installs dependencies, builds the app, and starts it
+
+        Note that it doesn't update/install submodules
+        """
+        try:
+            # Get app run command
+            run_cmd = self.get_app_run_command()
+
+            if not run_cmd:
+                # Error
+                return print_error("Couldn't find a way to run the Node.js app.")
+
+            cmd = f"cd {self.path}; {run_cmd}"
+
+            # Run app
+            process = subprocess.run(["/bin/bash",
+                                   "-c",
+                                   cmd])
+
+            if process.stdout:
+                ccm.print_ok_green("Output:")
+                print(process.stdout)
+
+            if process.stderr:
+                ccm.print_error("Error(Exit code != 0): " + process.stderr)
+
+            return process
+        except Exception as ex:
+            return ccm.print_error(f"Error when trying to run the app, error: "
+                                   f"{str(ex)}")

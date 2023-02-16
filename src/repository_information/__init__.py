@@ -19,5 +19,5 @@ class RepositoryInformation:
         try:
             nodejs_app = NodeJS(self.path)
             return nodejs_app
-        except:
+        except Exception as ex:
             pass
