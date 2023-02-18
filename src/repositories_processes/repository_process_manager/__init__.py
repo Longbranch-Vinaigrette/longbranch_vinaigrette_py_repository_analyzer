@@ -60,12 +60,20 @@ class RepositoriesProcessManager:
                 except:
                     repository["possibleStartScripts"] = None
 
+                # Get app framework
+                try:
+                    framework = app_type.get_app_framework()
+                    repository["framework"] = framework
+                except:
+                    repository["framework"] = "Unknown"
+
                 # App language shouldn't be missing in any case
                 repository["appLanguage"] = app_type.app_language()
             else:
                 repository["possibleCommands"] = None
                 repository["possibleStartScripts"] = None
                 repository["appLanguage"] = None
+                repository["framework"] = "Unknown"
 
     def find_starts_with(self,
                          cmd: str,

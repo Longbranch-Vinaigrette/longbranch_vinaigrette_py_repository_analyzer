@@ -11,6 +11,7 @@ class Python:
         """Python app"""
         self.path = app_path
         self.args = run_args
+        self.framework = "Python"
 
         if not self.is_python_app():
             raise Exception("Not a python app.")
@@ -62,6 +63,10 @@ class Python:
     def app_language(self):
         """Get app language"""
         return "Python"
+
+    def get_app_framework(self):
+        """Get app framework"""
+        return self.framework
 
     def get_app_run_command(self):
         """Get app run command"""

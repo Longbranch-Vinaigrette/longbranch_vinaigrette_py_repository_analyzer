@@ -11,6 +11,7 @@ class NodeJS:
     def __init__(self, app_path: str):
         """Python app"""
         self.path = app_path
+        self.framework = "Node.js"
 
         if not self.is_nodejs_app():
             raise Exception("Not a NodeJS app.")
@@ -78,6 +79,28 @@ class NodeJS:
     def app_language(self):
         """Get app language"""
         return "Javascript"
+
+    def get_app_framework(self):
+        """Get app framework"""
+        if os.path.exists(f"{self.path}{os.path.sep}next.config.js"):
+            self.framework = "Node.js/Next.js"
+        else:
+            package_json_path = f"{self.apth}{os.path.sep}package.json"
+            if os.path.exists(package_json_path):
+                # Get data
+                with open(package_json_path) as f:
+                    data = json.load(f)
+
+                    # Now let's check what frameworks the app is using, by
+                    # checking its dependencies
+                    deps: dict = data["dependencies"]
+                    frameworks = ["express"]
+                    for dep in list(deps.keys()):
+                        if dep in frameworks:
+                            self.framework = f"Node.js/{dep}"
+                            break
+
+        return self.framework
 
     def get_nodejs_commands(self):
         """Get nodejs commands
