@@ -1,3 +1,7 @@
+"""
+This class uses the app path to identify an app, so if there's more than
+one app on the given path, this class is not appropriate for identification.
+"""
 import os
 import pprint
 
@@ -8,7 +12,8 @@ from ...repository_information import RepositoryInformation
 
 
 class RepositoriesProcessManager:
-    apps_running: list = []
+    apps_running: dict = {}
+    apps: dict = {}
 
     def __init__(self, repositories_path: list, debug: bool = False):
         repositories: list = []
@@ -24,11 +29,12 @@ class RepositoriesProcessManager:
         self.repositories = repositories
         self.debug = debug
 
-        self.update_possible_apps_commands()
-
+        # Index everything for fast access
         self.repositories_index = {}
         for index, repository in enumerate(repositories):
             self.repositories_index[repository["path"]] = index
+
+        self.update_possible_apps_commands()
 
         if self.debug:
             print("\n")
@@ -43,38 +49,17 @@ class RepositoriesProcessManager:
     def update_possible_apps_commands(self):
         """Set possible apps commands on every repository of the repository
         list"""
-        for repository in self.repositories:
-            info = RepositoryInformation(repository["path"])
-            app_type = info.get_app_type()
+        # Clone the list because we're gonna change its values
+        for repository in self.repositories.copy():
+            rep_path = repository["path"]
 
-            if app_type:
-                # Any of these could be missing
-                try:
-                    possible_commands = app_type.possible_start_commands()
-                    repository["possibleCommands"] = possible_commands
-                except:
-                    repository["possibleCommands"] = None
-
-                try:
-                    possible_start_scripts = app_type.possible_start_scripts()
-                    repository["possibleStartScripts"] = possible_start_scripts
-                except:
-                    repository["possibleStartScripts"] = None
-
-                # Get app framework
-                try:
-                    framework = app_type.get_app_framework()
-                    repository["framework"] = framework
-                except:
-                    repository["framework"] = "Unknown"
-
-                # App language shouldn't be missing in any case
-                repository["appLanguage"] = app_type.app_language()
-            else:
-                repository["possibleCommands"] = None
-                repository["possibleStartScripts"] = None
-                repository["appLanguage"] = None
-                repository["framework"] = "Unknown"
+            # Get repository information
+            info = RepositoryInformation(rep_path)
+            self.repositories[self.repositories_index[rep_path]] = {
+                **repository,
+                # Overwrite previous data if found twice
+                **info.get_app_info()
+            }
 
     def find_starts_with(self,
                          cmd: str,
@@ -168,11 +153,6 @@ class RepositoriesProcessManager:
                         pprint.pprint(proc)
 
                     return app_info
-
-                    # apps_running[process_cwd] = {
-                    #     **proc,
-                    #     "appInfo": app_info
-                    # }
             except Exception as ex:
                 clr.print_error("Unknown error: ")
                 print(f"{clr.clr.FAIL}Exception: ", ex, f"{clr.clr.ENDC}")
@@ -220,10 +200,18 @@ class RepositoriesProcessManager:
 
     def get_running_apps(self):
         """Get running apps"""
-        if len(self.apps_running) == 0:
+        apps_running_quantity = len(list(self.apps_running.keys()))
+
+        if apps_running_quantity == 0:
             self.apps_running = self.find_running_apps()
+
         return self.apps_running
 
     def get_apps(self):
         """Get every app"""
+        self.apps = {
+
+            # Some apps may be running, so we need to override them like this
+            **self.get_running_apps()
+        }
         return self.apps

@@ -9,18 +9,12 @@ from .repository_process_manager import RepositoriesProcessManager
 class RepositoriesProcesses:
     def __init__(self,
                  repositories_path: list,
-                 only_running: bool = True,
                  debug: bool = False):
         """
 
         only_running Whether to get only running apps or not
         """
-        rep_mng = RepositoriesProcessManager(repositories_path, debug=debug)
-
-        if only_running:
-            self.apps_running = rep_mng.get_running_apps()
-        else:
-            self.apps = rep_mng.get_apps()
+        self.rep_proc_manager = RepositoriesProcessManager(repositories_path, debug=debug)
 
     def start_by_cwd(self, cwd: str):
         """Start an app by cwd"""
@@ -51,7 +45,11 @@ class RepositoriesProcesses:
 
     def get_running_apps(self):
         """Get running apps"""
-        return self.apps_running
+        return self.rep_proc_manager.get_running_apps()
+
+    def get_apps(self):
+        """Get every app running or not"""
+        return self.rep_proc_manager.get_apps()
 
     def get_app_running_by_cwd(self, path: str):
         """It's 99% likely that the app is the correct one, unless you
