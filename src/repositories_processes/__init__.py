@@ -7,9 +7,20 @@ from .repository_process_manager import RepositoriesProcessManager
 
 
 class RepositoriesProcesses:
-    def __init__(self, repositories_path: list, debug: bool = False):
+    def __init__(self,
+                 repositories_path: list,
+                 only_running: bool = True,
+                 debug: bool = False):
+        """
+
+        only_running Whether to get only running apps or not
+        """
         rep_mng = RepositoriesProcessManager(repositories_path, debug=debug)
-        self.apps_running = rep_mng.get_running_apps()
+
+        if only_running:
+            self.apps_running = rep_mng.get_running_apps()
+        else:
+            self.apps = rep_mng.get_apps()
 
     def start_by_cwd(self, cwd: str):
         """Start an app by cwd"""

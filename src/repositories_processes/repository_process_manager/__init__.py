@@ -8,6 +8,8 @@ from ...repository_information import RepositoryInformation
 
 
 class RepositoriesProcessManager:
+    apps_running: list = []
+
     def __init__(self, repositories_path: list, debug: bool = False):
         repositories: list = []
 
@@ -30,7 +32,6 @@ class RepositoriesProcessManager:
 
         if self.debug:
             print("\n")
-        self.apps_running = self.find_running_apps()
 
     def get_repository_by_path(self, path: str):
         """Get repository indexed by path for the classic O(1) performance"""
@@ -97,6 +98,85 @@ class RepositoriesProcessManager:
                 return True
         return False
 
+    def get_process_by_cwd_and_cmd(self, pcwd: str, cmd: str):
+        """Get the process by cwd and cmd, if not found, returns None
+
+        The cmd is just the command name without args.
+        @returns
+            Returns app_info if the process is the right one"""
+
+        # Get app info by path
+        app_info = self.get_repository_by_path(
+            pcwd
+        )
+
+        if app_info:
+            try:
+                if not pcwd:
+                    clr.print_error("The process cwd is very important to "
+                                    "identify app there must have been a weird "
+                                    "error if you didn't get it, check what "
+                                    "information you retrieve from the "
+                                    "processes.")
+                    return
+
+                # Process name is essential for process identification
+                if not cmd:
+                    clr.print_error("You need to provide the field 'name' "
+                                    "for every process, as this is the command "
+                                    "that started the process, and is "
+                                    "used to identify the app.")
+                    return
+
+                # Check if the command is excluded or not, if it's
+                # then this is not the command we are looking for
+                try:
+                    this_is_not_it = self.get_this_is_not_it(
+                        cmd,
+                        app_info.exclude_start_commands()
+                    )
+                    # Although this process may have started the app,
+                    # killing it wouldn't stop the app, like Next.js
+                    # 'npm run dev'
+                    if this_is_not_it:
+                        return
+                except:
+                    # The language apps have no excluded commands, and
+                    # that's ok.
+                    pass
+
+                # Check if there are possible start commands
+                # if there aren't, we can't kill the app then.
+                try:
+                    app_possible_commands = app_info["possibleCommands"]
+                    if not app_possible_commands:
+                        raise Exception("The app needs possible starting commands "
+                                    "to be precisely identified")
+                except:
+                    clr.print_error("The app needs possible starting commands "
+                                    "to be precisely identified")
+                    return
+
+                # The name of the app is the command
+                is_the_app = self.find_starts_with(
+                    cmd,
+                    app_possible_commands)
+
+                if is_the_app:
+                    if self.debug:
+                        clr.print_ok_green(f"App found: {cmd}")
+                        pprint.pprint(proc)
+
+                    return app_info
+
+                    # apps_running[process_cwd] = {
+                    #     **proc,
+                    #     "appInfo": app_info
+                    # }
+            except Exception as ex:
+                clr.print_error("Unknown error: ")
+                print(f"{clr.clr.FAIL}Exception: ", ex, f"{clr.clr.ENDC}")
+
     def find_running_apps(self):
         """Find the app, if not found returns None"""
         # Get every running process
@@ -110,80 +190,40 @@ class RepositoriesProcessManager:
         # so you can access it without looping around.
         apps_running: dict = {}
         for proc in processes:
-            app_info = self.get_repository_by_path(
-                proc["cwd"]
+            try:
+                pcwd = proc["cwd"]
+            except:
+                # Process doesn't have cwd?
+                continue
+
+            try:
+                pname = proc["name"]
+            except:
+                # Process doesn't have name?
+                continue
+
+            app_found = self.get_process_by_cwd_and_cmd(
+                pcwd,
+                pname
             )
 
-            if app_info:
-                try:
-                    # Process name is essential on process identification
-                    try:
-                        process_name = proc["name"]
-                    except:
-                        clr.print_error("You need to provide the field 'name' "
-                                        "for every process, as this is the command "
-                                        "that started the process, and is "
-                                        "used to identify the app.")
-                        continue
-
-                    # Check if the command is excluded or not, if it's
-                    # then this is not the command we are looking for
-                    try:
-                        this_is_not_it = self.get_this_is_not_it(
-                            process_name,
-                            app_info.exclude_start_commands()
-                        )
-                        # Although this process may have started the app,
-                        # killing it wouldn't stop the app, like Next.js
-                        # 'npm run dev'
-                        if this_is_not_it:
-                            continue
-                    except:
-                        # The language apps have no excluded commands, and
-                        # that's ok.
-                        pass
-
-                    # Check if there are possible start commands
-                    # if there aren't, we can't kill the app then.
-                    try:
-                        app_possible_commands = app_info["possibleCommands"]
-                        if not app_possible_commands:
-                            raise Exception("The app needs possible starting commands "
-                                        "to be precisely identified")
-                    except:
-                        clr.print_error("The app needs possible starting commands "
-                                        "to be precisely identified")
-                        continue
-
-                    try:
-                        process_cwd = proc["cwd"]
-                    except:
-                        clr.print_error("The process cwd is very important to "
-                                        "identify app there must have been a weird "
-                                        "error if you didn't get it, check what "
-                                        "information you retrieve from the "
-                                        "processes.")
-                        continue
-
-                    # The name of the app is the command
-                    is_the_app = self.find_starts_with(
-                        process_name,
-                        app_possible_commands)
-
-                    if is_the_app:
-                        if self.debug:
-                            clr.print_ok_green(f"App found: {proc['name']}")
-                            pprint.pprint(proc)
-
-                        apps_running[process_cwd] = {
-                            **proc,
-                            "appInfo": app_info
-                        }
-                except Exception as ex:
-                    clr.print_error("Unknown error: ")
-                    print(f"{clr.clr.FAIL}Exception: ", ex, f"{clr.clr.ENDC}")
+            # Check if it's the app we're looking for or not, if it returns
+            # none, it's because it's not the app we're looking for.
+            if app_found:
+                # It's the correct app, add it to the dictionary, app_found is
+                # the app info, so we need to format it a bit.
+                apps_running[pcwd] = {
+                    **proc,
+                    "appInfo": app_found
+                }
         return apps_running
 
     def get_running_apps(self):
         """Get running apps"""
+        if len(self.apps_running) == 0:
+            self.apps_running = self.find_running_apps()
         return self.apps_running
+
+    def get_apps(self):
+        """Get every app"""
+        return self.apps
