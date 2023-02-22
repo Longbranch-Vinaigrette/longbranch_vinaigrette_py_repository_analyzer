@@ -209,8 +209,16 @@ class RepositoriesProcessManager:
 
     def get_apps(self):
         """Get every app"""
-        self.apps = {
+        # Convert repositories to a dictionary
+        repositories: dict = {}
+        for repository in self.repositories:
+            rep_path = repository["path"]
+            repositories[rep_path] = {
+                "appInfo": repository
+            }
 
+        self.apps = {
+            **repositories,
             # Some apps may be running, so we need to override them like this
             **self.get_running_apps()
         }
